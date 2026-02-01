@@ -3,15 +3,18 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { User, LogOut, CreditCard, History, Gift, Settings } from "lucide-react";
 
 export function Header() {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -38,6 +41,22 @@ export function Header() {
       authListener?.subscription?.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuOpen]);
 
   const handleSignOut = async () => {
     await supabaseClient.auth.signOut();
@@ -92,13 +111,70 @@ export function Header() {
                     Dashboard
                   </Button>
                 </Link>
-                <Button
-                  onClick={handleSignOut}
-                  variant="outline"
-                  className="border-purple-600 text-purple-400 hover:bg-purple-600 hover:text-white"
-                >
-                  Sign Out
-                </Button>
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setMenuOpen((prev) => !prev)}
+                    className="h-9 w-9 rounded-full border border-white/10 bg-gradient-to-br from-purple-600/40 to-purple-900/40 flex items-center justify-center text-white hover:border-purple-500/60 transition"
+                    aria-label="Open profile menu"
+                  >
+                    <User className="h-4 w-4" />
+                  </button>
+                  {menuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 rounded-lg border border-white/10 bg-black/90 shadow-xl backdrop-blur">
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push("/profile");
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-purple-600/20"
+                      >
+                        <Settings className="h-4 w-4 text-purple-300" />
+                        Profile
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push("/billing");
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-purple-600/20"
+                      >
+                        <CreditCard className="h-4 w-4 text-purple-300" />
+                        Billing
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push("/referral");
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-purple-600/20"
+                      >
+                        <Gift className="h-4 w-4 text-purple-300" />
+                        Refer
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push("/history");
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-purple-600/20"
+                      >
+                        <History className="h-4 w-4 text-purple-300" />
+                        History
+                      </button>
+                      <div className="border-t border-white/10" />
+                      <button
+                        onClick={async () => {
+                          setMenuOpen(false);
+                          await handleSignOut();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-300 hover:bg-red-600/20"
+                      >
+                        <LogOut className="h-4 w-4 text-red-300" />
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <>

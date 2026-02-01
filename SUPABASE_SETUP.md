@@ -51,6 +51,13 @@ POST /api/auth/sync
 
 This creates the Prisma user if missing.
 
+## Memory system
+
+- User memory is stored server-side in Postgres (table: `Memory`).
+- You can save memory by writing:
+  - `remember: ...` / `lembrar: ...` / `save: ...` / `salvar: ...`
+- The last memories are injected into the system prompt automatically.
+
 ## RLS (Row Level Security)
 
 Apply RLS to all app tables in Supabase SQL Editor:

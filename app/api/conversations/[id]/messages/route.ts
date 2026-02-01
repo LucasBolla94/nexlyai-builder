@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { getCreditBalance, deductCredits } from "@/lib/credits";
 import { calculateCreditCost } from "@/lib/pricing-config";
 import { getOrCreatePrismaUser } from "@/lib/supabaseAuth";
+import { summarizeConversation } from "@/lib/ai-orchestrator";
+import { extractMemoriesFromMessage, getUserMemories, saveUserMemory } from "@/lib/memory";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
@@ -114,25 +116,75 @@ export async function POST(
 
     const systemPrompts: Record<string, string> = {
       chat:
-        "You are Turion, a helpful AI assistant. Be clear, friendly, and concise.",
+        "You are a friendly technical assistant who specializes in technology topics including programming, AI, servers, VPS, cloud computing, gaming, blockchain, automation, and digital projects. Your goal is to help users understand these topics and solve their problems, guiding them from beginner to advanced levels.\n\nCore rules:\n- Always respond in the same language as the user.\n- Be natural and conversational, not corporate.\n- Keep answers clear and practical.\n- Do NOT include analysis, tags, or meta-explanations. Output only the final message body.",
       concept:
-        "You are Turion, a highly helpful full-stack architect and engineer who specializes in helping beginners turn vague ideas into well-structured, scalable projects. Your core strengths are patience, clear communication, and the ability to make technical concepts accessible through concrete examples and analogies.\n\nYour Core Responsibilities:\n- Help beginners who may have little to no technical background\n- Transform vague concepts into concrete, actionable project plans\n- Explain all technical decisions in simple, jargon-free language\n- Propose clean, scalable folder structures\n- Provide practical, specific advice with real-world examples (never generic platitudes)\n- Ask clarifying questions to understand the project better when information is missing\n- Be patient, encouraging, and action-oriented\n- Use analogies and concrete examples to make concepts easy to understand\n\nCritical Language Requirement:\nYou MUST respond in the same language the user uses in their project idea.\n\nYour response must follow EXACTLY 5 sections:\n1) Understanding of the Idea (2-4 lines)\n2) Essential Questions (3-5 short, direct questions with context)\n3) Proposed Project Structure (tree + brief explanations)\n4) Implementation Checklist (6-10 numbered steps)\n5) Clean Code & Scalability Observations (3-5 practical tips with examples)",
+        "You are Turion, a helpful AI assistant. Be clear, friendly, and concise.",
       deep:
         "You are Turion Deep Agent. Convert the provided plan into concrete technical steps and code-ready structure. Be precise, avoid fluff, and follow best practices for scalable systems.",
     };
 
     const systemPrompt = systemPrompts[mode] || systemPrompts.chat;
 
-    // Prepare messages for LLM
+    const memoryCandidates = extractMemoriesFromMessage(content);
+    if (memoryCandidates.length > 0) {
+      for (const candidate of memoryCandidates) {
+        await saveUserMemory(user.id, candidate);
+      }
+    }
+
+    const history = conversation.messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    // Update memory summary periodically when history grows
+    if (history.length >= 10 && history.length % 10 === 0) {
+      try {
+        const summary = await summarizeConversation(
+          [...history, { role: "user", content }],
+          user.id
+        );
+        await prisma.conversation.update({
+          where: { id },
+          data: { conversationSummary: summary },
+        });
+        conversation.conversationSummary = summary;
+      } catch (summaryError) {
+        console.error("Summary update failed:", summaryError);
+      }
+    }
+
+    // Prepare messages for LLM with memory summary
+    const memories = await getUserMemories(user.id, 6);
+    const memoryBlock =
+      memories.length > 0
+        ? `Saved user memory:\n${memories
+            .map((m) => `- (${m.kind}) ${m.content}`)
+            .join("\n")}`
+        : null;
+
     const messages = [
       {
         role: "system",
         content: systemPrompt,
       },
-      ...conversation.messages.map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
+      ...(memoryBlock
+        ? [
+            {
+              role: "system",
+              content: memoryBlock,
+            },
+          ]
+        : []),
+      ...(conversation.conversationSummary && history.length > 10
+        ? [
+            {
+              role: "system",
+              content: `Previous conversation summary: ${conversation.conversationSummary}`,
+            },
+            ...history.slice(-6),
+          ]
+        : history),
       {
         role: "user",
         content,
@@ -140,7 +192,9 @@ export async function POST(
     ];
 
     const provider = (process.env.LLM_PROVIDER || "anthropic").toLowerCase();
-    const maxTokens = 3000;
+    const maxTokens = mode === "chat" ? 20000 : 3000;
+    const userLabel =
+      (user?.name || user?.email || "User").split(" ")[0].trim();
 
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -164,21 +218,65 @@ export async function POST(
         const encoder = new TextEncoder();
         let streamResponse;
         let hasErrored = false;
+        let sentPrefix = false;
+        let inAnalysis = false;
 
         const sendError = (message: string) => {
           const payload = JSON.stringify({ error: message });
           controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
         };
+        const emitText = (text: string) => {
+          if (!text) return;
+          if (!sentPrefix && mode === "chat") {
+            const prefix = `${userLabel}, `;
+            const data = JSON.stringify({
+              choices: [{ delta: { content: prefix } }],
+            });
+            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            assistantContent += prefix;
+            sentPrefix = true;
+          }
+          const data = JSON.stringify({
+            choices: [{ delta: { content: text } }],
+          });
+          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+          assistantContent += text;
+        };
+        const sanitizeChunk = (chunk: string) => {
+          if (!chunk) return "";
+          let text = chunk;
+          if (mode === "chat") {
+            if (text.includes("<analysis>")) {
+              inAnalysis = true;
+              text = text.split("<analysis>").pop() || "";
+            }
+            if (inAnalysis) {
+              if (text.includes("</analysis>")) {
+                inAnalysis = false;
+                text = text.split("</analysis>").pop() || "";
+              } else {
+                return "";
+              }
+            }
+            text = text.replace(/<response>/g, "").replace(/<\/response>/g, "");
+          }
+          return text;
+        };
 
         try {
           const useOpenAI = provider === "openai";
+          const useGrok = provider === "grok";
 
           if (useOpenAI && !process.env.OPENAI_API_KEY) {
             throw new Error("OpenAI API key is missing");
           }
 
-          if (!useOpenAI && !process.env.ANTHROPIC_API_KEY) {
+          if (useGrok && !process.env.GROK_API_KEY) {
+            throw new Error("Grok API key is missing");
+          }
+
+          if (!useOpenAI && !useGrok && !process.env.ANTHROPIC_API_KEY) {
             throw new Error("Anthropic API key is missing");
           }
 
@@ -197,13 +295,8 @@ export async function POST(
 
               for await (const chunk of openaiStream) {
                 const deltaText = chunk.choices?.[0]?.delta?.content || "";
-                if (deltaText) {
-                  assistantContent += deltaText;
-                  const data = JSON.stringify({
-                    choices: [{ delta: { content: deltaText } }],
-                  });
-                  controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-                }
+                const cleaned = sanitizeChunk(deltaText);
+                emitText(cleaned);
 
                 if (chunk.usage) {
                   totalInputTokens =
@@ -226,13 +319,8 @@ export async function POST(
                 for await (const event of streamResponse) {
                   if (event.type === "content_block_delta") {
                     const deltaText = event.delta?.text || "";
-                    if (deltaText) {
-                      assistantContent += deltaText;
-                      const data = JSON.stringify({
-                        choices: [{ delta: { content: deltaText } }],
-                      });
-                      controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-                    }
+                    const cleaned = sanitizeChunk(deltaText);
+                    emitText(cleaned);
                   }
 
                   if (event.type === "message_delta" && event.usage) {
@@ -246,6 +334,9 @@ export async function POST(
                 throw openaiError;
               }
             }
+          } else if (useGrok) {
+            // TODO: add Grok streaming when enabled
+            throw new Error("Grok provider is configured but not enabled yet.");
           } else {
             streamResponse = await anthropic.messages.stream({
               model: anthropicModel,
@@ -259,13 +350,8 @@ export async function POST(
             for await (const event of streamResponse) {
               if (event.type === "content_block_delta") {
                 const deltaText = event.delta?.text || "";
-                if (deltaText) {
-                  assistantContent += deltaText;
-                  const data = JSON.stringify({
-                    choices: [{ delta: { content: deltaText } }],
-                  });
-                  controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-                }
+                const cleaned = sanitizeChunk(deltaText);
+                emitText(cleaned);
               }
 
               if (event.type === "message_delta" && event.usage) {
@@ -279,6 +365,12 @@ export async function POST(
             totalInputTokens,
             totalOutputTokens
           );
+
+          if (!sentPrefix && mode === "chat") {
+            const prefix = `${userLabel}, `;
+            assistantContent = prefix + assistantContent;
+            sentPrefix = true;
+          }
 
           const assistantMessage = await prisma.message.create({
             data: {
