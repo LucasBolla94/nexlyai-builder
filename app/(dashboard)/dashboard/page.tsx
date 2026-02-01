@@ -4,11 +4,23 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { Sparkles, Code2, Rocket } from "lucide-react";
+import {
+  Sparkles,
+  Plus,
+  Loader2,
+  MessageSquare,
+  Wand2,
+  Brain,
+  Layers,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CreditDisplay } from "@/components/credit-display";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { supabaseFetch } from "@/lib/supabaseFetch";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
 
@@ -58,6 +70,26 @@ export default function DashboardPage() {
     };
   }, [router]);
 
+  const createNewChat = async (title: string, routeSuffix: string) => {
+    setIsCreating(true);
+    try {
+      const response = await supabaseFetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        router.push(`/chat/${data.conversation.id}${routeSuffix}`);
+      }
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center">
@@ -79,56 +111,139 @@ export default function DashboardPage() {
           <div className="text-center space-y-4 mb-12">
             <h1 className="text-4xl md:text-5xl font-bold">
               Welcome back,{" "}
-              <span className="gradient-text">{userName || "User"}</span>
-              !
+              <span className="gradient-text">{userName || "User"}</span>!
             </h1>
-            <p className="text-lg text-gray-400">
+            <p className="text-lg text-gray-400 mb-6">
               Your AI app builder dashboard
             </p>
           </div>
 
-          {/* Coming Soon Cards */}
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <div className="p-8 rounded-lg bg-gradient-to-br from-gray-900 to-gray-950 border border-white/10 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-950/50 mb-4">
-                <Sparkles className="h-8 w-8 text-purple-400" />
+          {/* Main Dashboard Grid */}
+          <div className="grid lg:grid-cols-3 gap-6 mb-12">
+            {/* Left Column - Products */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Product - Turion Chat */}
+              <div className="p-8 bg-gradient-to-br from-purple-900/40 to-purple-800/20 border border-purple-500/30 rounded-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <MessageSquare className="h-8 w-8 text-purple-400" />
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">Turion Chat</h2>
+                    <p className="text-xs text-purple-300">
+                      Anthropic + OpenAI - low cost, high quality
+                    </p>
+                  </div>
+                </div>
+                <p className="text-gray-300 mb-6">
+                  A fast, affordable chat LLM with memory enhancement to keep
+                  context sharp and useful.
+                </p>
+                <Button
+                  onClick={() => createNewChat("Turion Chat", "")}
+                  disabled={isCreating}
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white"
+                >
+                  {isCreating ? (
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  ) : (
+                    <Plus className="h-5 w-5 mr-2" />
+                  )}
+                  Open Turion Chat
+                </Button>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                AI Chat Interface
-              </h3>
-              <p className="text-gray-400 text-sm">Coming in Phase 2</p>
+
+              {/* Product - Concept Architect */}
+              <div className="p-8 bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-500/30 rounded-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <Brain className="h-8 w-8 text-blue-400" />
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">
+                      Concept Architect
+                    </h2>
+                    <p className="text-xs text-blue-300">
+                      Idea clarification - scope - tech plan
+                    </p>
+                  </div>
+                </div>
+                <p className="text-gray-300 mb-6">
+                  Helps you understand the idea, define scope, and structure a
+                  clear plan to hand off to the Deep Agent.
+                </p>
+                <Button
+                  onClick={() =>
+                    createNewChat("Concept Architect", "?mode=concept")
+                  }
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
+                >
+                  <Wand2 className="h-5 w-5 mr-2" />
+                  Start Concept Architect
+                </Button>
+              </div>
+
+              {/* Product - Deep Agent */}
+              <div className="p-8 bg-gradient-to-br from-emerald-900/40 to-emerald-800/20 border border-emerald-500/30 rounded-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <Layers className="h-8 w-8 text-emerald-400" />
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">Deep Agent</h2>
+                    <p className="text-xs text-emerald-300">
+                      Full build - scaffolding - preview
+                    </p>
+                  </div>
+                </div>
+                <p className="text-gray-300 mb-6">
+                  Executes the full build using your structured plan. Generates
+                  code, scaffolds, and runs previews.
+                </p>
+                <Button
+                  onClick={() => router.push("/builder")}
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white"
+                >
+                  <Sparkles className="h-5 w-5 mr-2" />
+                  Open Deep Agent
+                </Button>
+              </div>
             </div>
 
-            <div className="p-8 rounded-lg bg-gradient-to-br from-gray-900 to-gray-950 border border-white/10 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-950/50 mb-4">
-                <Code2 className="h-8 w-8 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                App Generation
-              </h3>
-              <p className="text-gray-400 text-sm">Coming in Phase 3</p>
-            </div>
-
-            <div className="p-8 rounded-lg bg-gradient-to-br from-gray-900 to-gray-950 border border-white/10 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-950/50 mb-4">
-                <Rocket className="h-8 w-8 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Code Preview & Download
-              </h3>
-              <p className="text-gray-400 text-sm">Coming in Phase 4</p>
+            {/* Right Column - Credits Display */}
+            <div className="lg:col-span-1">
+              <CreditDisplay />
             </div>
           </div>
 
-          {/* Info Box */}
-          <div className="mt-12 max-w-3xl mx-auto p-6 rounded-lg bg-purple-950/30 border border-purple-500/30">
-            <p className="text-center text-gray-300">
-              <span className="font-semibold text-purple-400">
-                Phase 1 Complete!
-              </span>{" "}
-              The foundation is ready. Stay tuned for exciting features coming in
-              the next phases.
-            </p>
+          {/* Products Status Cards */}
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <div className="p-8 rounded-lg bg-gradient-to-br from-purple-600/20 to-purple-500/10 border border-purple-500/30 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-600/30 mb-4">
+                <MessageSquare className="h-8 w-8 text-purple-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Turion Chat
+              </h3>
+              <p className="text-green-400 text-sm font-semibold">Live now</p>
+            </div>
+
+            <div className="p-8 rounded-lg bg-gradient-to-br from-blue-600/20 to-blue-500/10 border border-blue-500/30 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-600/30 mb-4">
+                <Brain className="h-8 w-8 text-blue-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Concept Architect
+              </h3>
+              <p className="text-green-400 text-sm font-semibold">Live now</p>
+            </div>
+
+            <div className="p-8 rounded-lg bg-gradient-to-br from-emerald-600/20 to-emerald-500/10 border border-emerald-500/30 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-600/30 mb-4">
+                <Layers className="h-8 w-8 text-emerald-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Deep Agent
+              </h3>
+              <p className="text-green-400 text-sm font-semibold">Live now</p>
+            </div>
           </div>
         </div>
       </section>

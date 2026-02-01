@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sparkles, Loader2 } from "lucide-react";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { supabaseFetch } from "@/lib/supabaseFetch";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,18 +25,19 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { error: signInError } = await supabaseClient.auth.signInWithPassword(
-        {
+      const { error: signInError } =
+        await supabaseClient.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
-        }
-      );
+        });
 
       if (signInError) {
         setError(signInError.message || "Invalid email or password");
         setIsLoading(false);
         return;
       }
+
+      await supabaseFetch("/api/auth/sync", { method: "POST" });
 
       router.push("/dashboard");
     } catch (err) {
@@ -52,14 +54,14 @@ export default function LoginPage() {
           <div className="rounded-lg bg-gradient-to-br from-purple-600 to-purple-800 p-2">
             <Sparkles className="h-6 w-6 text-white" />
           </div>
-          <span className="text-2xl font-bold gradient-text">NexlyAI</span>
+          <span className="text-2xl font-bold gradient-text">Turion</span>
         </Link>
 
         {/* Form Card */}
         <div className="bg-gradient-to-br from-gray-900 to-gray-950 border border-white/10 rounded-lg p-8 shadow-2xl">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
-            <p className="text-gray-400">Sign in to continue to NexlyAI</p>
+            <p className="text-gray-400">Sign in to continue to Turion</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

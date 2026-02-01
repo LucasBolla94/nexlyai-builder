@@ -13,7 +13,7 @@ export function Footer() {
             <div className="rounded-lg bg-gradient-to-br from-purple-600 to-purple-800 p-1.5">
               <Sparkles className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-bold gradient-text">NexlyAI</span>
+            <span className="text-lg font-bold gradient-text">Turion</span>
           </Link>
 
           {/* Links */}
@@ -34,7 +34,7 @@ export function Footer() {
 
           {/* Copyright */}
           <p className="text-sm text-gray-500">
-            © {currentYear} NexlyAI. All rights reserved.
+            © {currentYear} Turion. All rights reserved.
           </p>
         </div>
       </div>

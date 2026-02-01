@@ -9,16 +9,21 @@ generator client {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  password      String
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
+  id               String              @id @default(cuid())
+  supabaseId       String              @unique
+  name             String?
+  email            String              @unique
+  emailVerified    DateTime?
+  password         String?
+  image            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  accounts         Account[]
+  sessions         Session[]
+  conversations    Conversation[]
+  creditBalance    CreditBalance?
+  creditTransactions CreditTransaction[]
+  projects         Project[]
 }
 
 model Account {
@@ -53,4 +58,118 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String    @default("New Chat")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           String       // "user" or "assistant"
+  content        String       @db.Text
+  tokensUsed     Int          @default(0)  // Tracks tokens used in this message
+  creditCost     Float        @default(0)  // Cost in credits for this message
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+// Credit Balance - One per user
+model CreditBalance {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  balance         Float    @default(0)  // Current credit balance
+  lifetimeEarned  Float    @default(0)  // Total credits ever added
+  lifetimeSpent   Float    @default(0)  // Total credits ever spent
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Credit Transactions - History of all credit movements
+model CreditTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // "purchase", "usage", "bonus", "refund"
+  amount      Float    // Positive for adds, negative for usage
+  description String   @db.Text
+  metadata    String?  @db.Text  // JSON string for extra data (tokens used, message id, etc)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// AI-Generated Projects
+model Project {
+  id             String           @id @default(cuid())
+  userId         String
+  name           String           // Project name
+  description    String?          @db.Text  // User's project idea/description
+  projectType    String           // "nextjs", "react", "react-native"
+  status         String           @default("planning")  // planning, generating, ready, running, error, stopped
+  
+  // Preview/Deployment Info
+  subdomain      String?          @unique  // e.g., "proj-abc123"
+  port           Int?             // Internal port for preview
+  previewUrl     String?          // Full preview URL
+  
+  // File/Code Storage
+  projectPath    String?          // Path where project files are stored
+  gitRepo        String?          // Git repository URL (future)
+  
+  // AI Context & Memory
+  conversationSummary String?      @db.Text  // Condensed conversation context
+  techStack      String?          @db.Text  // JSON string of technologies used
+  requirements   String?          @db.Text  // JSON string of key requirements
+  
+  // Metadata
+  tokensUsed     Int              @default(0)  // Total tokens used in generation
+  creditCost     Float            @default(0)  // Total credits spent
+  errorLog       String?          @db.Text     // Error messages if status=error
+  
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  lastAccessedAt DateTime?        // Track when user last viewed/used
+  
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buildSteps     ProjectBuildStep[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([subdomain])
+}
+
+// Build Steps - Track the AI's progress in building the project
+model ProjectBuildStep {
+  id          String   @id @default(cuid())
+  projectId   String
+  step        Int      // Step number in sequence
+  title       String   // e.g., "Analyzing requirements", "Creating files"
+  description String?  @db.Text
+  status      String   @default("pending")  // pending, in_progress, completed, failed
+  output      String?  @db.Text  // Output/logs from this step
+  tokensUsed  Int      @default(0)
+  creditCost  Float    @default(0)
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+  @@index([status])
 }

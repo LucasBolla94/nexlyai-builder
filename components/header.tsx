@@ -53,7 +53,7 @@ export function Header() {
             <div className="rounded-lg bg-gradient-to-br from-purple-600 to-purple-800 p-1.5 transition-transform group-hover:scale-105">
               <Sparkles className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold gradient-text">NexlyAI</span>
+            <span className="text-xl font-bold gradient-text">Turion</span>
           </Link>
 
           {/* Desktop Navigation */}

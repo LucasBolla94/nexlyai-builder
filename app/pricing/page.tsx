@@ -172,7 +172,7 @@ export default function PricingPage() {
                   Is there a free trial?
                 </h3>
                 <p className="text-gray-400">
-                  Yes! You can try NexlyAI free for 7 days with full access to all
+                  Yes! You can try Turion free for 7 days with full access to all
                   features. No credit card required.
                 </p>
               </div>

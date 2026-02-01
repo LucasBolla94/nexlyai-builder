@@ -1,28 +1,63 @@
-export type Expense = {
-  id: string
-  amount: number
-  category: string
-  description: string
-  date: Date
+/**
+ * TYPE DEFINITIONS FOR NEXLYAI
+ */
+
+// Project Builder Types
+export type ProjectType = "nextjs" | "react" | "react-native";
+export type ProjectStatus = "planning" | "generating" | "ready" | "running" | "error" | "stopped";
+export type ProjectPhase = "discovery" | "planning" | "generation" | "ready";
+export type BuildStepStatus = "pending" | "in_progress" | "completed" | "failed";
+
+export interface Project {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  projectType: ProjectType;
+  status: ProjectStatus;
+  subdomain?: string;
+  port?: number;
+  previewUrl?: string;
+  projectPath?: string;
+  gitRepo?: string;
+  conversationSummary?: string;
+  techStack?: string;
+  requirements?: string;
+  tokensUsed: number;
+  creditCost: number;
+  errorLog?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastAccessedAt?: Date;
 }
 
-export type ExpenseFormData = Omit<Expense, 'id' | 'date'> & {
-  date: string
+export interface BuildStep {
+  id: string;
+  projectId: string;
+  step: number;
+  title: string;
+  description?: string;
+  status: BuildStepStatus;
+  output?: string;
+  tokensUsed: number;
+  creditCost: number;
+  createdAt: Date;
+  completedAt?: Date;
 }
 
-export const EXPENSE_CATEGORIES = [
-  'Food',
-  'Transportation',
-  'Housing',
-  'Utilities',
-  'Entertainment',
-  'Healthcare',
-  'Shopping',
-  'Education',
-  'Other'
-] as const
+export interface ProjectGenerationRequest {
+  userId: string;
+  projectType: ProjectType;
+  requirements: string;
+  techStack?: string[];
+  phase: ProjectPhase;
+}
 
-export type DateRange = {
-  from: Date | undefined
-  to: Date | undefined
+export interface BuildProgress {
+  projectId: string;
+  currentStep: number;
+  totalSteps: number;
+  status: ProjectStatus;
+  steps: BuildStep[];
+  estimatedTimeRemaining?: number;
 }

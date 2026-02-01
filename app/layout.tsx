@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
-  title: "NexlyAI - Build Apps with AI",
+  title: "Turion - Build Apps with AI",
   description:
     "Transform your ideas into fully functional applications in minutes with AI-powered development. No coding experience required.",
   icons: {
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     shortcut: "/favicon.svg",
   },
   openGraph: {
-    title: "NexlyAI - Build Apps with AI",
+    title: "Turion - Build Apps with AI",
     description:
       "Transform your ideas into fully functional applications in minutes with AI-powered development.",
     images: ["/og-image.png"],

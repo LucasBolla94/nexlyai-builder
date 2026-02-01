@@ -16,7 +16,7 @@ export function AboutSection() {
         {/* Header */}
         <div className="text-center space-y-4 mb-16">
           <h2 className="text-3xl md:text-5xl font-bold">
-            About <span className="gradient-text">NexlyAI</span>
+            About <span className="gradient-text">Turion</span>
           </h2>
           <p className="text-lg text-gray-400 max-w-2xl mx-auto">
             We're on a mission to democratize app development and make it
@@ -40,7 +40,7 @@ export function AboutSection() {
                 Our Mission
               </h3>
               <p className="text-gray-400 leading-relaxed">
-                NexlyAI empowers entrepreneurs, startups, and businesses to bring
+                Turion empowers entrepreneurs, startups, and businesses to bring
                 their ideas to life without technical barriers. We believe that
                 everyone should have the ability to create professional
                 applications, regardless of their coding background.

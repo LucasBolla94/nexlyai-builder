@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sparkles, Loader2 } from "lucide-react";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { supabaseFetch } from "@/lib/supabaseFetch";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -49,6 +50,7 @@ export default function SignupPage() {
         return;
       }
 
+      await supabaseFetch("/api/auth/sync", { method: "POST" });
       router.push("/dashboard");
     } catch (err) {
       setError("Something went wrong. Please try again.");
@@ -64,7 +66,7 @@ export default function SignupPage() {
           <div className="rounded-lg bg-gradient-to-br from-purple-600 to-purple-800 p-2">
             <Sparkles className="h-6 w-6 text-white" />
           </div>
-          <span className="text-2xl font-bold gradient-text">NexlyAI</span>
+          <span className="text-2xl font-bold gradient-text">Turion</span>
         </Link>
 
         {/* Form Card */}
