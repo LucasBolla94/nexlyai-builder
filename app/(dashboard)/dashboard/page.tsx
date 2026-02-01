@@ -4,23 +4,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import {
-  Sparkles,
-  Plus,
-  Loader2,
-  MessageSquare,
-  Wand2,
-  Brain,
-  Layers,
-} from "lucide-react";
+import { Sparkles, Plus, MessageSquare, Wand2, Brain, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreditDisplay } from "@/components/credit-display";
 import { supabaseClient } from "@/lib/supabaseClient";
-import { supabaseFetch } from "@/lib/supabaseFetch";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
 
@@ -70,24 +60,8 @@ export default function DashboardPage() {
     };
   }, [router]);
 
-  const createNewChat = async (title: string, routeSuffix: string) => {
-    setIsCreating(true);
-    try {
-      const response = await supabaseFetch("/api/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        router.push(`/chat/${data.conversation.id}${routeSuffix}`);
-      }
-    } catch (error) {
-      console.error("Error creating conversation:", error);
-    } finally {
-      setIsCreating(false);
-    }
+  const openChat = (routeSuffix: string) => {
+    router.push(`/chat${routeSuffix}`);
   };
 
   if (isLoading) {
@@ -138,16 +112,11 @@ export default function DashboardPage() {
                   context sharp and useful.
                 </p>
                 <Button
-                  onClick={() => createNewChat("Turion Chat", "")}
-                  disabled={isCreating}
+                  onClick={() => openChat("")}
                   size="lg"
                   className="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white"
                 >
-                  {isCreating ? (
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  ) : (
-                    <Plus className="h-5 w-5 mr-2" />
-                  )}
+                  <Plus className="h-5 w-5 mr-2" />
                   Open Turion Chat
                 </Button>
               </div>
@@ -170,9 +139,7 @@ export default function DashboardPage() {
                   clear plan to hand off to the Deep Agent.
                 </p>
                 <Button
-                  onClick={() =>
-                    createNewChat("Concept Architect", "?mode=concept")
-                  }
+                  onClick={() => openChat("?mode=concept")}
                   size="lg"
                   className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
                 >

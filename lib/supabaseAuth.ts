@@ -23,16 +23,70 @@ export async function getOrCreatePrismaUser(req: Request) {
     where: { supabaseId: supabaseUser.id },
   });
 
-  if (existingUser) return existingUser;
+  if (existingUser) {
+    const metadata = (supabaseUser.user_metadata || {}) as Record<
+      string,
+      unknown
+    >;
+    const firstName =
+      typeof metadata.first_name === "string" ? metadata.first_name : null;
+    const lastName =
+      typeof metadata.last_name === "string" ? metadata.last_name : null;
+    const fullName =
+      typeof metadata.full_name === "string"
+        ? metadata.full_name
+        : typeof metadata.name === "string"
+        ? metadata.name
+        : [firstName, lastName].filter(Boolean).join(" ") || null;
+    const termsAcceptedAt =
+      typeof metadata.terms_accepted_at === "string"
+        ? new Date(metadata.terms_accepted_at)
+        : null;
+
+    return prisma.user.update({
+      where: { id: existingUser.id },
+      data: {
+        name: fullName ?? existingUser.name,
+        firstName: firstName ?? existingUser.firstName,
+        lastName: lastName ?? existingUser.lastName,
+        termsAcceptedAt:
+          termsAcceptedAt instanceof Date && !isNaN(termsAcceptedAt.getTime())
+            ? termsAcceptedAt
+            : existingUser.termsAcceptedAt,
+      },
+    });
+  }
+
+  const metadata = (supabaseUser.user_metadata || {}) as Record<
+    string,
+    unknown
+  >;
+  const firstName =
+    typeof metadata.first_name === "string" ? metadata.first_name : null;
+  const lastName =
+    typeof metadata.last_name === "string" ? metadata.last_name : null;
+  const fullName =
+    typeof metadata.full_name === "string"
+      ? metadata.full_name
+      : typeof metadata.name === "string"
+      ? metadata.name
+      : [firstName, lastName].filter(Boolean).join(" ") || null;
+  const termsAcceptedAt =
+    typeof metadata.terms_accepted_at === "string"
+      ? new Date(metadata.terms_accepted_at)
+      : null;
 
   return prisma.user.create({
     data: {
       supabaseId: supabaseUser.id,
       email: supabaseUser.email,
-      name:
-        (supabaseUser.user_metadata as Record<string, unknown>)?.name ??
-        (supabaseUser.user_metadata as Record<string, unknown>)?.full_name ??
-        null,
+      name: fullName,
+      firstName,
+      lastName,
+      termsAcceptedAt:
+        termsAcceptedAt instanceof Date && !isNaN(termsAcceptedAt.getTime())
+          ? termsAcceptedAt
+          : null,
     },
   });
 }

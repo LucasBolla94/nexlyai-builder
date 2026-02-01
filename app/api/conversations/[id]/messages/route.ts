@@ -116,7 +116,7 @@ export async function POST(
 
     const systemPrompts: Record<string, string> = {
       chat:
-        "You are a friendly technical assistant who specializes in technology topics including programming, AI, servers, VPS, cloud computing, gaming, blockchain, automation, and digital projects. Your goal is to help users understand these topics and solve their problems, guiding them from beginner to advanced levels.\n\nCore rules:\n- Always respond in the same language as the user.\n- Be natural and conversational, not corporate.\n- Keep answers clear and practical.\n- Do NOT include analysis, tags, or meta-explanations. Output only the final message body.",
+        "You are a friendly technical assistant who specializes in technology topics including programming, AI, servers, VPS, cloud computing, gaming, blockchain, automation, and digital projects. Your goal is to help users understand these topics and solve their problems, guiding them from beginner to advanced levels.\n\nCore rules:\n- Always respond in the same language as the user.\n- Be natural and conversational, not corporate.\n- Keep answers clear and practical.\n- If you know the user's name, address them by name at the start. If you do not, ask for it politely.\n- Do not prepend symbols like '?' or '-' before your response.\n- Do NOT include analysis, tags, or meta-explanations. Output only the final message body.",
       concept:
         "You are Turion, a helpful AI assistant. Be clear, friendly, and concise.",
       deep:
@@ -156,9 +156,36 @@ export async function POST(
 
     // Prepare messages for LLM with memory summary
     const memories = await getUserMemories(user.id, 6);
+    const sanitizedMemories = memories.filter((m) => {
+      const content = (m.content || "").trim();
+      if (content.length < 2) return false;
+      if (/^[\W_]+$/.test(content)) return false;
+      return true;
+    });
+    const normalizeDisplayName = (value: string) => {
+      const cleaned = value
+        .replace(/[^\p{L}\p{N} .'-]/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (cleaned.length < 2) return "";
+      if (!/[A-Za-zÀ-ÿ]/.test(cleaned)) return "";
+      return cleaned.slice(0, 60);
+    };
+    const nameMemory = sanitizedMemories.find(
+      (m) =>
+        m.kind === "fact" &&
+        /nome|name/i.test(m.source || "") &&
+        normalizeDisplayName(m.content)
+    );
+    const userDisplayName = normalizeDisplayName(
+      nameMemory?.content ||
+        user?.name ||
+        user?.email?.split("@")[0] ||
+        ""
+    );
     const memoryBlock =
-      memories.length > 0
-        ? `Saved user memory:\n${memories
+      sanitizedMemories.length > 0
+        ? `Saved user memory:\n${sanitizedMemories
             .map((m) => `- (${m.kind}) ${m.content}`)
             .join("\n")}`
         : null;
@@ -166,7 +193,10 @@ export async function POST(
     const messages = [
       {
         role: "system",
-        content: systemPrompt,
+        content:
+          mode === "chat" && userDisplayName
+            ? `${systemPrompt}\n\nUser name: ${userDisplayName}`
+            : systemPrompt,
       },
       ...(memoryBlock
         ? [
@@ -193,8 +223,9 @@ export async function POST(
 
     const provider = (process.env.LLM_PROVIDER || "anthropic").toLowerCase();
     const maxTokens = mode === "chat" ? 20000 : 3000;
-    const userLabel =
-      (user?.name || user?.email || "User").split(" ")[0].trim();
+    const userLabel = userDisplayName
+      ? userDisplayName.split(" ")[0].trim()
+      : "";
 
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -228,7 +259,7 @@ export async function POST(
         };
         const emitText = (text: string) => {
           if (!text) return;
-          if (!sentPrefix && mode === "chat") {
+          if (!sentPrefix && mode === "chat" && userLabel) {
             const prefix = `${userLabel}, `;
             const data = JSON.stringify({
               choices: [{ delta: { content: prefix } }],
@@ -366,7 +397,7 @@ export async function POST(
             totalOutputTokens
           );
 
-          if (!sentPrefix && mode === "chat") {
+          if (!sentPrefix && mode === "chat" && userLabel) {
             const prefix = `${userLabel}, `;
             assistantContent = prefix + assistantContent;
             sentPrefix = true;

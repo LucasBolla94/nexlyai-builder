@@ -24,11 +24,13 @@ const IMPORTANT_PATTERNS: Array<{
   kind: MemoryKind;
   regex: RegExp;
   extractor: (match: RegExpMatchArray) => string | null;
+  isName?: boolean;
 }> = [
   {
     kind: "fact",
     regex: /(meu nome(?:\s+e| é)?|me chamo|chamo-me|my name is|call me)\s+(.+)/i,
     extractor: (match) => match[2]?.trim() || null,
+    isName: true,
   },
   {
     kind: "preference",
@@ -68,6 +70,13 @@ function normalizeContent(content: string) {
   return content.replace(/\s+/g, " ").trim().slice(0, MAX_MEMORY_LENGTH);
 }
 
+function isLikelyName(content: string) {
+  if (content.length < 2) return false;
+  if (!/[A-Za-zÀ-ÿ]/.test(content)) return false;
+  if (/^[^A-Za-zÀ-ÿ]+$/.test(content)) return false;
+  return true;
+}
+
 export function extractMemoriesFromMessage(message: string) {
   const candidates: MemoryCandidate[] = [];
   const explicit = message.match(EXPLICIT_SAVE_REGEX);
@@ -89,6 +98,9 @@ export function extractMemoriesFromMessage(message: string) {
     if (!match) continue;
     const extracted = normalizeContent(pattern.extractor(match) || "");
     if (!extracted || isSensitive(extracted)) continue;
+    if (pattern.isName) {
+      if (!isLikelyName(extracted)) continue;
+    }
     candidates.push({
       content: extracted,
       kind: pattern.kind,

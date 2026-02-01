@@ -19,6 +19,8 @@ interface ChatInterfaceProps {
   conversationId: string;
 }
 
+const PENDING_MESSAGE_KEY = "turion.pendingMessage";
+
 export function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -28,6 +30,22 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
   useEffect(() => {
     fetchMessages();
+  }, [conversationId]);
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(PENDING_MESSAGE_KEY);
+    if (!stored) return;
+
+    try {
+      const pending = JSON.parse(stored);
+      if (pending?.content) {
+        sessionStorage.removeItem(PENDING_MESSAGE_KEY);
+        sendMessage(pending.content as string);
+      }
+    } catch (error) {
+      sessionStorage.removeItem(PENDING_MESSAGE_KEY);
+      console.error("Invalid pending message:", error);
+    }
   }, [conversationId]);
 
   useEffect(() => {
@@ -55,11 +73,13 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
     }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || isSending) return;
+  const sendMessage = async (overrideContent?: string) => {
+    const userMessage = (overrideContent ?? input).trim();
+    if (!userMessage || isSending) return;
 
-    const userMessage = input.trim();
-    setInput("");
+    if (!overrideContent) {
+      setInput("");
+    }
     setIsSending(true);
 
     // Add user message immediately
@@ -163,9 +183,12 @@ export function ChatInterface({ conversationId }: ChatInterfaceProps) {
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <Bot className="h-16 w-16 text-purple-500 mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">Start a Conversation</h3>
+            <h3 className="text-xl font-semibold text-white mb-2">
+              Your chat is ready
+            </h3>
             <p className="text-gray-400 max-w-md">
-              Ask me anything! I'm here to help you build amazing apps with AI.
+              Send a message and I will help you plan, build, and explain
+              everything step by step.
             </p>
           </div>
         ) : (

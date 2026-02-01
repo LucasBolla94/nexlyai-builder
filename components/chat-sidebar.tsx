@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
   MessageSquare,
@@ -29,9 +29,9 @@ interface ChatSidebarProps {
 
 export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -69,26 +69,10 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
     }
   };
 
-  const createNewConversation = async () => {
-    setIsCreating(true);
-    try {
-      const response = await supabaseFetch("/api/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "New Chat" }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        router.push(`/chat/${data.conversation.id}`);
-        fetchConversations();
-      }
-    } catch (err) {
-      console.error("Error creating conversation:", err);
-      setError("Could not create a new chat. Try again.");
-    } finally {
-      setIsCreating(false);
-    }
+  const createNewConversation = () => {
+    const query = searchParams.toString();
+    const suffix = query ? `?${query}` : "";
+    router.push(`/chat${suffix}`);
   };
 
   const deleteConversation = async (id: string) => {
@@ -157,14 +141,9 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
       <div className="p-4 border-b border-purple-500/20 space-y-3">
         <Button
           onClick={createNewConversation}
-          disabled={isCreating}
           className="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white"
         >
-          {isCreating ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <Plus className="h-4 w-4 mr-2" />
-          )}
+          <Plus className="h-4 w-4 mr-2" />
           New Chat
         </Button>
         <div className="relative">
@@ -186,7 +165,7 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
         ) : filteredConversations.length === 0 ? (
           <div className="text-center text-gray-400 text-sm mt-8 px-4">
             {conversations.length === 0
-              ? "No conversations yet. Start a new chat!"
+              ? "No chats yet. Send a message to start one."
               : "No chats match your search."}
           </div>
         ) : (
@@ -292,7 +271,7 @@ export function ChatSidebar({ currentConversationId }: ChatSidebarProps) {
               {confirmDeleteId === conversation.id && (
                 <div className="mt-2 rounded-lg border border-white/10 bg-black/80 p-3 shadow-lg">
                   <div className="text-sm text-white mb-2">
-                    Delete this chat? This can’t be undone.
+                    Delete this chat? This can't be undone.
                   </div>
                   <div className="flex items-center gap-2">
                     <button
